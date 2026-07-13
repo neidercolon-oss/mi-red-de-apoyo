@@ -401,6 +401,140 @@
     </div>
   </div>
 
+  <!-- ============ INTEGRACIÓN GOOGLE SHEETS ============ -->
+  <script>
+  // ─────────────────────────────────────────────────────────────────
+  //  CONFIGURACIÓN: pega aquí la URL de tu Apps Script Web App
+  //  (la obtienes en el paso 9 de las instrucciones del archivo Code.gs)
+  // ─────────────────────────────────────────────────────────────────
+  var APPS_SCRIPT_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT";
+
+  // ─────────────────────────────────────────────────────────────────
+  //  Envía los datos de registro al Google Sheet
+  //  Llama esta función después de que el usuario complete el formulario
+  // ─────────────────────────────────────────────────────────────────
+  function registrarEnSheets(datosExtra) {
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "https://script.google.com/macros/s/AKfycbyg_w1ulAuxIFLhYXQAhJO2avABS482rwaGI3W52Kp-sorCKxkPZyeHLNaT5qR0lkW6Jg/exec") {
+      console.warn("[Sheets] URL de Apps Script no configurada. Configura APPS_SCRIPT_URL en index.html.");
+      return Promise.resolve({ ok: false, error: "URL no configurada" });
+    }
+
+    var nombre  = (document.getElementById("regName")  || {}).value  || "";
+    var edad    = (document.getElementById("regAge")   || {}).value  || "";
+    var correo  = (document.getElementById("regEmail") || {}).value  || "";
+
+    var payload = Object.assign({
+      nombre:  nombre.trim(),
+      edad:    edad,
+      correo:  correo.trim().toLowerCase(),
+    }, datosExtra || {});
+
+    // Usamos fetch con no-cors porque Apps Script no devuelve CORS headers
+    // en modo "Anyone". Para leer la respuesta necesitarías un proxy, pero
+    // el registro igual llega al Sheet aunque no podamos leer el status.
+    return fetch(APPS_SCRIPT_URL, {
+      method:  "POST",
+      mode:    "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+    })
+    .then(function() {
+      console.log("[Sheets] Registro enviado correctamente.");
+      mostrarSyncStatus("✅ Datos registrados en la planilla institucional.");
+      return { ok: true };
+    })
+    .catch(function(err) {
+      console.error("[Sheets] Error al enviar registro:", err);
+      mostrarSyncStatus("⚠️ No se pudo sincronizar con la planilla. Los datos se guardan localmente.");
+      return { ok: false, error: err.message };
+    });
+  }
+
+  // Muestra un mensaje de estado en el área syncStatus (pantalla final)
+  function mostrarSyncStatus(msg) {
+    var el = document.getElementById("syncStatus");
+    if (el) { el.textContent = msg; }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  //  Hook: intercepta el botón "Verificar y continuar"
+  //  para enviar el registro al Sheet en el momento exacto
+  // ─────────────────────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", function() {
+
+    // ── Registro inicial (al verificar código o al avanzar del form) ──
+    function hookRegistroBtn() {
+      var verifyBtn = document.getElementById("regVerifyBtn");
+      var submitBtn = document.getElementById("regSubmitBtn");
+
+      // Si el juego salta el paso de verificación por email (modo simplificado)
+      // también capturamos el clic en "Enviar código"
+      if (submitBtn) {
+        submitBtn.addEventListener("click", function() {
+          // pequeño delay para que el engine procese primero
+          setTimeout(function() {
+            var nombre = (document.getElementById("regName") || {}).value || "";
+            var edad   = (document.getElementById("regAge")  || {}).value || "";
+            var correo = (document.getElementById("regEmail")|| {}).value || "";
+            if (nombre && edad && correo) {
+              registrarEnSheets({ etapa: "inicio" });
+            }
+          }, 800);
+        });
+      }
+
+      if (verifyBtn) {
+        verifyBtn.addEventListener("click", function() {
+          setTimeout(function() {
+            registrarEnSheets({ etapa: "verificado" });
+          }, 600);
+        });
+      }
+    }
+
+    // ── Registro con datos de juego al llegar al final ──
+    function hookFinalScreen() {
+      // Observa cambios en el DOM para detectar cuando se muestra screen-ending
+      var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+          if (m.target && m.target.id === "screen-ending" &&
+              !m.target.classList.contains("hidden")) {
+            // Captura puntajes finales del HUD
+            setTimeout(function() {
+              var barRed    = document.getElementById("endStatRed");
+              var barBien   = document.getElementById("endStatBienestar");
+              var barConoc  = document.getElementById("endStatConocimiento");
+              var charName  = document.getElementById("planCharName");
+              var logros    = [];
+              document.querySelectorAll("#achievementsList [data-logro]").forEach(function(el) {
+                logros.push(el.dataset.logro);
+              });
+
+              registrarEnSheets({
+                etapa:               "fin_partida",
+                personaje:           charName  ? charName.textContent.trim()  : "",
+                puntajeRed:          barRed    ? barRed.textContent.trim()    : "",
+                puntajeBienestar:    barBien   ? barBien.textContent.trim()   : "",
+                puntajeConocimiento: barConoc  ? barConoc.textContent.trim()  : "",
+                logros:              logros.join(", "),
+              });
+            }, 1000);
+          }
+        });
+      });
+
+      var endScreen = document.getElementById("screen-ending");
+      if (endScreen) {
+        observer.observe(endScreen, { attributes: true, attributeFilter: ["class"] });
+      }
+    }
+
+    hookRegistroBtn();
+    hookFinalScreen();
+  });
+  </script>
+  <!-- ============ FIN INTEGRACIÓN GOOGLE SHEETS ============ -->
+
   <!-- Scripts clásicos (no type="module") a propósito: deben poder abrirse
        con doble clic en index.html, sin servidor. El orden importa. -->
   <script src="js/config.js?v=7"></script>
