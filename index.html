@@ -11,7 +11,7 @@
 </head>
 <body class="min-h-screen bg-app text-slate-100 antialiased">
 
-  <!-- BARRA SUPERIOR PERSISTENTE: logos institucionales + accesos rápidos (visible en toda la ejecución) -->
+  <!-- BARRA SUPERIOR PERSISTENTE -->
   <header id="topBar" class="sticky top-0 z-[999] w-full bg-white shadow-lg flex items-center justify-between gap-2 px-3 py-2">
     <img id="headerLogo" src="assets/img/logos-institucionales.png" alt="Alcaldía Mayor de Bogotá D.C · Alcaldía Local de San Cristóbal · Bogotá"
       class="h-8 sm:h-10 w-auto" onerror="this.style.display='none'" />
@@ -403,25 +403,21 @@
 
   <!-- ============ INTEGRACIÓN GOOGLE SHEETS ============ -->
   <script>
-  // ─────────────────────────────────────────────────────────────────
-  //  CONFIGURACIÓN: pega aquí la URL de tu Apps Script Web App
-  //  (la obtienes en el paso 9 de las instrucciones del archivo Code.gs)
-  // ─────────────────────────────────────────────────────────────────
-  var APPS_SCRIPT_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT";
+  // URL del Web App de Google Apps Script — ya configurada
+  var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyg_w1ulAuxIFLhYXQAhJO2avABS482rwaGI3W52Kp-sorCKxkPZyeHLNaT5qR0lkW6Jg/exec";
 
-  // ─────────────────────────────────────────────────────────────────
-  //  Envía los datos de registro al Google Sheet
-  //  Llama esta función después de que el usuario complete el formulario
-  // ─────────────────────────────────────────────────────────────────
+  /**
+   * Envía los datos del participante al Google Sheet.
+   * Se puede llamar en cualquier momento; complementa con datosExtra
+   * (personaje, puntajes, logros) cuando se llama desde el final.
+   */
   function registrarEnSheets(datosExtra) {
-    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === "https://script.google.com/macros/s/AKfycbyg_w1ulAuxIFLhYXQAhJO2avABS482rwaGI3W52Kp-sorCKxkPZyeHLNaT5qR0lkW6Jg/exec") {
-      console.warn("[Sheets] URL de Apps Script no configurada. Configura APPS_SCRIPT_URL en index.html.");
-      return Promise.resolve({ ok: false, error: "URL no configurada" });
-    }
+    var nombre = (document.getElementById("regName")  || {}).value || "";
+    var edad   = (document.getElementById("regAge")   || {}).value || "";
+    var correo = (document.getElementById("regEmail") || {}).value || "";
 
-    var nombre  = (document.getElementById("regName")  || {}).value  || "";
-    var edad    = (document.getElementById("regAge")   || {}).value  || "";
-    var correo  = (document.getElementById("regEmail") || {}).value  || "";
+    // Si no hay nombre ni correo todavía, no enviamos (formulario incompleto)
+    if (!nombre.trim() && !correo.trim()) return Promise.resolve({ ok: false });
 
     var payload = Object.assign({
       nombre:  nombre.trim(),
@@ -429,108 +425,81 @@
       correo:  correo.trim().toLowerCase(),
     }, datosExtra || {});
 
-    // Usamos fetch con no-cors porque Apps Script no devuelve CORS headers
-    // en modo "Anyone". Para leer la respuesta necesitarías un proxy, pero
-    // el registro igual llega al Sheet aunque no podamos leer el status.
+    // fetch en no-cors: el dato llega al Sheet aunque el navegador
+    // no pueda leer la respuesta (limitación CORS de Apps Script).
     return fetch(APPS_SCRIPT_URL, {
       method:  "POST",
       mode:    "no-cors",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),
     })
-    .then(function() {
-      console.log("[Sheets] Registro enviado correctamente.");
-      mostrarSyncStatus("✅ Datos registrados en la planilla institucional.");
+    .then(function () {
+      console.log("[Sheets] ✅ Registro enviado:", payload.etapa || "sin etapa");
+      var el = document.getElementById("syncStatus");
+      if (el) el.textContent = "✅ Datos registrados en la planilla institucional.";
       return { ok: true };
     })
-    .catch(function(err) {
-      console.error("[Sheets] Error al enviar registro:", err);
-      mostrarSyncStatus("⚠️ No se pudo sincronizar con la planilla. Los datos se guardan localmente.");
-      return { ok: false, error: err.message };
+    .catch(function (err) {
+      console.warn("[Sheets] ⚠️ No se pudo enviar:", err.message);
+      var el = document.getElementById("syncStatus");
+      if (el) el.textContent = "⚠️ Sin conexión: datos guardados solo localmente.";
+      return { ok: false };
     });
   }
 
-  // Muestra un mensaje de estado en el área syncStatus (pantalla final)
-  function mostrarSyncStatus(msg) {
-    var el = document.getElementById("syncStatus");
-    if (el) { el.textContent = msg; }
-  }
+  // ── Hooks: se activan cuando el DOM ya está listo ──
+  document.addEventListener("DOMContentLoaded", function () {
 
-  // ─────────────────────────────────────────────────────────────────
-  //  Hook: intercepta el botón "Verificar y continuar"
-  //  para enviar el registro al Sheet en el momento exacto
-  // ─────────────────────────────────────────────────────────────────
-  document.addEventListener("DOMContentLoaded", function() {
-
-    // ── Registro inicial (al verificar código o al avanzar del form) ──
-    function hookRegistroBtn() {
-      var verifyBtn = document.getElementById("regVerifyBtn");
-      var submitBtn = document.getElementById("regSubmitBtn");
-
-      // Si el juego salta el paso de verificación por email (modo simplificado)
-      // también capturamos el clic en "Enviar código"
-      if (submitBtn) {
-        submitBtn.addEventListener("click", function() {
-          // pequeño delay para que el engine procese primero
-          setTimeout(function() {
-            var nombre = (document.getElementById("regName") || {}).value || "";
-            var edad   = (document.getElementById("regAge")  || {}).value || "";
-            var correo = (document.getElementById("regEmail")|| {}).value || "";
-            if (nombre && edad && correo) {
-              registrarEnSheets({ etapa: "inicio" });
-            }
-          }, 800);
-        });
-      }
-
-      if (verifyBtn) {
-        verifyBtn.addEventListener("click", function() {
-          setTimeout(function() {
-            registrarEnSheets({ etapa: "verificado" });
-          }, 600);
-        });
-      }
+    // 1) Al hacer clic en "Enviar código de verificación"
+    //    → registra nombre + edad + correo con etapa "inicio"
+    var submitBtn = document.getElementById("regSubmitBtn");
+    if (submitBtn) {
+      submitBtn.addEventListener("click", function () {
+        setTimeout(function () {
+          registrarEnSheets({ etapa: "inicio" });
+        }, 700);
+      });
     }
 
-    // ── Registro con datos de juego al llegar al final ──
-    function hookFinalScreen() {
-      // Observa cambios en el DOM para detectar cuando se muestra screen-ending
-      var observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(m) {
-          if (m.target && m.target.id === "screen-ending" &&
+    // 2) Al hacer clic en "Verificar y continuar"
+    //    → confirma que el correo es válido
+    var verifyBtn = document.getElementById("regVerifyBtn");
+    if (verifyBtn) {
+      verifyBtn.addEventListener("click", function () {
+        setTimeout(function () {
+          registrarEnSheets({ etapa: "verificado" });
+        }, 600);
+      });
+    }
+
+    // 3) Al llegar a la pantalla final
+    //    → registra de nuevo con puntajes, personaje y logros
+    var endScreen = document.getElementById("screen-ending");
+    if (endScreen) {
+      var observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          if (m.target.id === "screen-ending" &&
               !m.target.classList.contains("hidden")) {
-            // Captura puntajes finales del HUD
-            setTimeout(function() {
-              var barRed    = document.getElementById("endStatRed");
-              var barBien   = document.getElementById("endStatBienestar");
-              var barConoc  = document.getElementById("endStatConocimiento");
-              var charName  = document.getElementById("planCharName");
-              var logros    = [];
-              document.querySelectorAll("#achievementsList [data-logro]").forEach(function(el) {
-                logros.push(el.dataset.logro);
-              });
+
+            setTimeout(function () {
+              var logros = [];
+              document.querySelectorAll("#achievementsList [data-logro]")
+                .forEach(function (el) { logros.push(el.dataset.logro); });
 
               registrarEnSheets({
                 etapa:               "fin_partida",
-                personaje:           charName  ? charName.textContent.trim()  : "",
-                puntajeRed:          barRed    ? barRed.textContent.trim()    : "",
-                puntajeBienestar:    barBien   ? barBien.textContent.trim()   : "",
-                puntajeConocimiento: barConoc  ? barConoc.textContent.trim()  : "",
+                personaje:           (document.getElementById("planCharName")       || {}).textContent || "",
+                puntajeRed:          (document.getElementById("endStatRed")         || {}).textContent || "",
+                puntajeBienestar:    (document.getElementById("endStatBienestar")   || {}).textContent || "",
+                puntajeConocimiento: (document.getElementById("endStatConocimiento")|| {}).textContent || "",
                 logros:              logros.join(", "),
               });
-            }, 1000);
+            }, 1200);
           }
         });
       });
-
-      var endScreen = document.getElementById("screen-ending");
-      if (endScreen) {
-        observer.observe(endScreen, { attributes: true, attributeFilter: ["class"] });
-      }
+      observer.observe(endScreen, { attributes: true, attributeFilter: ["class"] });
     }
-
-    hookRegistroBtn();
-    hookFinalScreen();
   });
   </script>
   <!-- ============ FIN INTEGRACIÓN GOOGLE SHEETS ============ -->
