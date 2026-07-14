@@ -126,15 +126,14 @@ function isBackendConfigured() {
 }
 function sendToBackend(payload) {
   if (!isBackendConfigured()) return Promise.resolve({ ok: false, reason: "not-configured" });
-  const json = JSON.stringify(payload);
-  // Usamos GET con el payload en un parámetro para garantizar que Apps Script lo reciba
-  const url = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(json);
-  return fetch(url, { method: "GET" })
-    .then(async (res) => {
-      let data = null;
-      try { data = await res.json(); } catch (err) {}
-      return { ok: true, data };
-    })
+  // no-cors evita el bloqueo CORS desde file:// y GitHub Pages.
+  // El body SÍ llega a Apps Script aunque el navegador no pueda leer la respuesta.
+  return fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    body: JSON.stringify(payload),
+  })
+    .then(() => ({ ok: true, data: null }))
     .catch((err) => ({ ok: false, reason: err.message }));
 }
 async function registerPlayer() {
