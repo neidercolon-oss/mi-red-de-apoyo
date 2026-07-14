@@ -126,14 +126,13 @@ function isBackendConfigured() {
 }
 function sendToBackend(payload) {
   if (!isBackendConfigured()) return Promise.resolve({ ok: false, reason: "not-configured" });
-  return fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" }, // evita preflight CORS
-    body: JSON.stringify(payload),
-  })
+  const json = JSON.stringify(payload);
+  // Usamos GET con el payload en un parámetro para garantizar que Apps Script lo reciba
+  const url = APPS_SCRIPT_URL + "?data=" + encodeURIComponent(json);
+  return fetch(url, { method: "GET" })
     .then(async (res) => {
       let data = null;
-      try { data = await res.json(); } catch (err) { /* respuesta no-JSON, seguimos sin datos */ }
+      try { data = await res.json(); } catch (err) {}
       return { ok: true, data };
     })
     .catch((err) => ({ ok: false, reason: err.message }));
