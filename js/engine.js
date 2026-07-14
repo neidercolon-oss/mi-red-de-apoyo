@@ -89,11 +89,7 @@ $("#regSubmitBtn").addEventListener("click", async () => {
 
   $("#regSubmitBtn").disabled = true;
   $("#regStatus").textContent = "⏳ Registrando…";
-
-  // Envía los datos directamente al Google Sheet (sin verificación por correo).
-  // Apps Script recibe nombre, edad y correo y los escribe en la hoja "Registros".
   await registerPlayer();
-
   $("#regStatus").textContent = "";
   $("#regSubmitBtn").disabled = false;
   renderCharacterSelect();
@@ -144,7 +140,6 @@ function sendToBackend(payload) {
     .catch((err) => ({ ok: false, reason: err.message }));
 }
 async function registerPlayer() {
-  // Intenta enviar al Google Sheet; si falla (sin internet) el juego igual avanza.
   try {
     await sendToBackend({
       action: "register",
@@ -678,19 +673,16 @@ function sendResultsEmail(ending) {
     ? "⏳ Enviando tus resultados por correo…"
     : "⏳ Registrando tu resultado de forma anónima para las estadísticas del taller…";
   sendToBackend({
-    action: "send_result",
+    action: "finish",
     timestamp: new Date().toISOString(),
     name: state.player.name,
     email: state.player.email,
-    age: state.player.age,
-    playMode: state.playMode,
-    personaje: state.character.name,
+    ageRange: state.player.age,
+    character: state.character.name,
     violenceType: state.character.violenceType,
     ending: ending.title,
-    puntajeRed:          Math.round(state.stats.red)          + "%",
-    puntajeBienestar:    Math.round(state.stats.bienestar)    + "%",
-    puntajeConocimiento: Math.round(state.stats.conocimiento) + "%",
-    logros: [...state.achievements].join(", "),
+    stats: state.stats,
+    achievements: [...state.achievements],
     decisions: state.decisionsLog,
     signalsIdentified: [...new Set(state.signalsLog)],
     signalsMissed: [...new Set(state.missedSignalsLog)],
@@ -866,6 +858,7 @@ function saveSessionSnapshot() {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({
       characterId: state.character.id,
       nodeId: state.nodeId,
+      stats: state.stats,
       contacts: state.contacts,
       consultedOnce: state.consultedOnce,
       unlockedResources: [...state.unlockedResources],
@@ -915,15 +908,6 @@ function resumeSession(snap, c) {
   state.anyContactConsulted = snap.anyContactConsulted;
   state.player = snap.player || { name: "", age: "", email: "" };
   state.lastMood = null;
-
-  // Si el snapshot no tiene datos del jugador (sesión antigua),
-  // redirigir al registro antes de continuar el juego.
-  if (!state.player.name || !state.player.email) {
-    clearSessionSnapshot();
-    showScreen("screen-register");
-    return;
-  }
-
   $("#hudName").textContent = c.name;
   $("#hudScenario").textContent = c.violenceType;
   showScreen("screen-game");
