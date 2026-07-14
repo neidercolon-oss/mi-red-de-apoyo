@@ -86,7 +86,6 @@ $("#regSubmitBtn").addEventListener("click", async () => {
     age: $("#regAge").value,
     email: $("#regEmail").value.trim(),
   };
-
   $("#regSubmitBtn").disabled = true;
   $("#regStatus").textContent = "⏳ Registrando…";
   await registerPlayer();
@@ -150,7 +149,7 @@ async function registerPlayer() {
       playMode: state.playMode,
     });
   } catch (err) {
-    console.warn("[Sheets] No se pudo registrar:", err.message);
+    console.warn("[Sheets] registerPlayer error:", err.message);
   }
 }
 $("#quickExitBtn").addEventListener("click", quickExit);
@@ -673,16 +672,18 @@ function sendResultsEmail(ending) {
     ? "⏳ Enviando tus resultados por correo…"
     : "⏳ Registrando tu resultado de forma anónima para las estadísticas del taller…";
   sendToBackend({
-    action: "finish",
+    action: "send_result",
     timestamp: new Date().toISOString(),
     name: state.player.name,
     email: state.player.email,
-    ageRange: state.player.age,
-    character: state.character.name,
-    violenceType: state.character.violenceType,
+    age: state.player.age,
+    playMode: state.playMode,
+    personaje: state.character.name + " · " + state.character.violenceType,
     ending: ending.title,
-    stats: state.stats,
-    achievements: [...state.achievements],
+    puntajeRed:          Math.round(state.stats.red)          + "%",
+    puntajeBienestar:    Math.round(state.stats.bienestar)    + "%",
+    puntajeConocimiento: Math.round(state.stats.conocimiento) + "%",
+    logros: [...state.achievements].join(", "),
     decisions: state.decisionsLog,
     signalsIdentified: [...new Set(state.signalsLog)],
     signalsMissed: [...new Set(state.missedSignalsLog)],
