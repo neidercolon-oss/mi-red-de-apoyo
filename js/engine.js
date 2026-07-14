@@ -126,15 +126,27 @@ function isBackendConfigured() {
 }
 function sendToBackend(payload) {
   if (!isBackendConfigured()) return Promise.resolve({ ok: false, reason: "not-configured" });
-  // no-cors evita el bloqueo CORS desde file:// y GitHub Pages.
-  // El body SÍ llega a Apps Script aunque el navegador no pueda leer la respuesta.
-  return fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    mode: "no-cors",
-    body: JSON.stringify(payload),
-  })
-    .then(() => ({ ok: true, data: null }))
-    .catch((err) => ({ ok: false, reason: err.message }));
+  // Usamos un iframe oculto para enviar los datos via GET.
+  // Esto evita las restricciones CORS de GitHub Pages y file://.
+  return new Promise((resolve) => {
+    try {
+      const params = encodeURIComponent(JSON.stringify(payload));
+      const url = APPS_SCRIPT_URL + "?data=" + params;
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = url;
+      iframe.onload = () => { document.body.removeChild(iframe); resolve({ ok: true, data: null }); };
+      iframe.onerror = () => { document.body.removeChild(iframe); resolve({ ok: false, reason: "iframe error" }); };
+      document.body.appendChild(iframe);
+      // Timeout por si el onload no dispara (no-cors iframes)
+      setTimeout(() => {
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+        resolve({ ok: true, data: null });
+      }, 5000);
+    } catch(err) {
+      resolve({ ok: false, reason: err.message });
+    }
+  });
 }
 async function registerPlayer() {
   try {
