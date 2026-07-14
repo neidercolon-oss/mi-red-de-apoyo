@@ -87,29 +87,17 @@ $("#regSubmitBtn").addEventListener("click", async () => {
     email: $("#regEmail").value.trim(),
   };
 
-  if (!isBackendConfigured()) {
-    // Sin backend desplegado todavía no es posible verificar el correo de verdad.
-    // El juego sigue funcionando: se registra localmente y se avanza sin bloquear la sesión.
-    registerPlayer();
-    renderCharacterSelect();
-    showScreen("screen-select");
-    return;
-  }
-
   $("#regSubmitBtn").disabled = true;
-  $("#regStatus").textContent = "⏳ Enviando código de verificación a tu correo…";
-  const res = await sendToBackend({ action: "send_code", name: state.player.name, email: state.player.email });
-  $("#regSubmitBtn").disabled = false;
-  if (!res.ok) {
-    $("#regStatus").textContent = "⚠️ No se pudo enviar el código (revisa la conexión a internet). Intenta de nuevo.";
-    return;
-  }
+  $("#regStatus").textContent = "⏳ Registrando…";
+
+  // Envía los datos directamente al Google Sheet (sin verificación por correo).
+  // Apps Script recibe nombre, edad y correo y los escribe en la hoja "Registros".
+  await registerPlayer();
+
   $("#regStatus").textContent = "";
-  $("#regStep2Email").textContent = state.player.email;
-  $("#regCode").value = "";
-  $("#regStep2Status").textContent = "";
-  $("#regStep1").classList.add("hidden");
-  $("#regStep2").classList.remove("hidden");
+  $("#regSubmitBtn").disabled = false;
+  renderCharacterSelect();
+  showScreen("screen-select");
 });
 
 $("#regResendBtn").addEventListener("click", async () => {
@@ -155,15 +143,20 @@ function sendToBackend(payload) {
     })
     .catch((err) => ({ ok: false, reason: err.message }));
 }
-function registerPlayer() {
-  sendToBackend({
-    action: "register",
-    timestamp: new Date().toISOString(),
-    name: state.player.name,
-    age: state.player.age,
-    email: state.player.email,
-    playMode: state.playMode,
-  });
+async function registerPlayer() {
+  // Intenta enviar al Google Sheet; si falla (sin internet) el juego igual avanza.
+  try {
+    await sendToBackend({
+      action: "register",
+      timestamp: new Date().toISOString(),
+      name: state.player.name,
+      age: state.player.age,
+      email: state.player.email,
+      playMode: state.playMode,
+    });
+  } catch (err) {
+    console.warn("[Sheets] No se pudo registrar:", err.message);
+  }
 }
 $("#quickExitBtn").addEventListener("click", quickExit);
 $("#menuExit").addEventListener("click", quickExit);
