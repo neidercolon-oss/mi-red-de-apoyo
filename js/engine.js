@@ -678,16 +678,19 @@ function sendResultsEmail(ending) {
     ? "⏳ Enviando tus resultados por correo…"
     : "⏳ Registrando tu resultado de forma anónima para las estadísticas del taller…";
   sendToBackend({
-    action: "finish",
+    action: "send_result",
     timestamp: new Date().toISOString(),
     name: state.player.name,
     email: state.player.email,
-    ageRange: state.player.age,
-    character: state.character.name,
+    age: state.player.age,
+    playMode: state.playMode,
+    personaje: state.character.name,
     violenceType: state.character.violenceType,
     ending: ending.title,
-    stats: state.stats,
-    achievements: [...state.achievements],
+    puntajeRed:          Math.round(state.stats.red)          + "%",
+    puntajeBienestar:    Math.round(state.stats.bienestar)    + "%",
+    puntajeConocimiento: Math.round(state.stats.conocimiento) + "%",
+    logros: [...state.achievements].join(", "),
     decisions: state.decisionsLog,
     signalsIdentified: [...new Set(state.signalsLog)],
     signalsMissed: [...new Set(state.missedSignalsLog)],
@@ -863,7 +866,6 @@ function saveSessionSnapshot() {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify({
       characterId: state.character.id,
       nodeId: state.nodeId,
-      stats: state.stats,
       contacts: state.contacts,
       consultedOnce: state.consultedOnce,
       unlockedResources: [...state.unlockedResources],
