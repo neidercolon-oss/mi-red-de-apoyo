@@ -8,4 +8,4 @@
       funcionando con normalidad, pero el registro y el envío de
       correo quedarán deshabilitados en silencio (no rompe el juego).
    ============================================================ */
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyg_w1ulAuxIFLhYXQAhJO2avABS482rwaGI3W52Kp-sorCKxkPZyeHLNaT5qR0lkW6Jg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzdqFekF-uzg01zmtlFIolr87pybgH3JFyJvq8RBoA16g4Oa2Ah_904oOQ72aFzxHA/exec";
