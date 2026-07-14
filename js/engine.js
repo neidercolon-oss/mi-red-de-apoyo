@@ -915,6 +915,15 @@ function resumeSession(snap, c) {
   state.anyContactConsulted = snap.anyContactConsulted;
   state.player = snap.player || { name: "", age: "", email: "" };
   state.lastMood = null;
+
+  // Si el snapshot no tiene datos del jugador (sesión antigua),
+  // redirigir al registro antes de continuar el juego.
+  if (!state.player.name || !state.player.email) {
+    clearSessionSnapshot();
+    showScreen("screen-register");
+    return;
+  }
+
   $("#hudName").textContent = c.name;
   $("#hudScenario").textContent = c.violenceType;
   showScreen("screen-game");
