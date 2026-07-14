@@ -401,110 +401,12 @@
     </div>
   </div>
 
-  <!-- ============ INTEGRACIÓN GOOGLE SHEETS ============ -->
+  <!-- URL del Web App de Google Apps Script — leída por engine.js -->
   <script>
-  // URL del Web App de Google Apps Script — ya configurada
   var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyg_w1ulAuxIFLhYXQAhJO2avABS482rwaGI3W52Kp-sorCKxkPZyeHLNaT5qR0lkW6Jg/exec";
-
-  /**
-   * Envía los datos del participante al Google Sheet.
-   * Se puede llamar en cualquier momento; complementa con datosExtra
-   * (personaje, puntajes, logros) cuando se llama desde el final.
-   */
-  function registrarEnSheets(datosExtra) {
-    var nombre = (document.getElementById("regName")  || {}).value || "";
-    var edad   = (document.getElementById("regAge")   || {}).value || "";
-    var correo = (document.getElementById("regEmail") || {}).value || "";
-
-    // Si no hay nombre ni correo todavía, no enviamos (formulario incompleto)
-    if (!nombre.trim() && !correo.trim()) return Promise.resolve({ ok: false });
-
-    var payload = Object.assign({
-      nombre:  nombre.trim(),
-      edad:    edad,
-      correo:  correo.trim().toLowerCase(),
-    }, datosExtra || {});
-
-    // fetch en no-cors: el dato llega al Sheet aunque el navegador
-    // no pueda leer la respuesta (limitación CORS de Apps Script).
-    return fetch(APPS_SCRIPT_URL, {
-      method:  "POST",
-      mode:    "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(payload),
-    })
-    .then(function () {
-      console.log("[Sheets] ✅ Registro enviado:", payload.etapa || "sin etapa");
-      var el = document.getElementById("syncStatus");
-      if (el) el.textContent = "✅ Datos registrados en la planilla institucional.";
-      return { ok: true };
-    })
-    .catch(function (err) {
-      console.warn("[Sheets] ⚠️ No se pudo enviar:", err.message);
-      var el = document.getElementById("syncStatus");
-      if (el) el.textContent = "⚠️ Sin conexión: datos guardados solo localmente.";
-      return { ok: false };
-    });
-  }
-
-  // ── Hooks: se activan cuando el DOM ya está listo ──
-  document.addEventListener("DOMContentLoaded", function () {
-
-    // 1) Al hacer clic en "Enviar código de verificación"
-    //    → registra nombre + edad + correo con etapa "inicio"
-    var submitBtn = document.getElementById("regSubmitBtn");
-    if (submitBtn) {
-      submitBtn.addEventListener("click", function () {
-        setTimeout(function () {
-          registrarEnSheets({ etapa: "inicio" });
-        }, 700);
-      });
-    }
-
-    // 2) Al hacer clic en "Verificar y continuar"
-    //    → confirma que el correo es válido
-    var verifyBtn = document.getElementById("regVerifyBtn");
-    if (verifyBtn) {
-      verifyBtn.addEventListener("click", function () {
-        setTimeout(function () {
-          registrarEnSheets({ etapa: "verificado" });
-        }, 600);
-      });
-    }
-
-    // 3) Al llegar a la pantalla final
-    //    → registra de nuevo con puntajes, personaje y logros
-    var endScreen = document.getElementById("screen-ending");
-    if (endScreen) {
-      var observer = new MutationObserver(function (mutations) {
-        mutations.forEach(function (m) {
-          if (m.target.id === "screen-ending" &&
-              !m.target.classList.contains("hidden")) {
-
-            setTimeout(function () {
-              var logros = [];
-              document.querySelectorAll("#achievementsList [data-logro]")
-                .forEach(function (el) { logros.push(el.dataset.logro); });
-
-              registrarEnSheets({
-                etapa:               "fin_partida",
-                personaje:           (document.getElementById("planCharName")       || {}).textContent || "",
-                puntajeRed:          (document.getElementById("endStatRed")         || {}).textContent || "",
-                puntajeBienestar:    (document.getElementById("endStatBienestar")   || {}).textContent || "",
-                puntajeConocimiento: (document.getElementById("endStatConocimiento")|| {}).textContent || "",
-                logros:              logros.join(", "),
-              });
-            }, 1200);
-          }
-        });
-      });
-      observer.observe(endScreen, { attributes: true, attributeFilter: ["class"] });
-    }
-  });
   </script>
-  <!-- ============ FIN INTEGRACIÓN GOOGLE SHEETS ============ -->
 
-  <!-- Scripts clásicos (no type="module") a propósito: deben poder abrirse
+    <!-- Scripts clásicos (no type="module") a propósito: deben poder abrirse
        con doble clic en index.html, sin servidor. El orden importa. -->
   <script src="js/config.js?v=7"></script>
   <script src="js/avatars.js?v=7"></script>
